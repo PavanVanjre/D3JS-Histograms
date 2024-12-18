@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="text/javascript" src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/d3-array.v2.min.js"></script>
+    <!-- <script type="text/javascript" src="./Project1.js"> -->
+        
+    </script>
+
+    <title>Document</title>
+    <style>
+        svg text {
+            fill: blue;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: row;
+            gap:10rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div><svg id="svg" width="800" height="1200">
+        </svg></div>
+        <div><textarea id="t_area" rows="17" cols="40">
+            Text Area 
+     </textarea></div>
+    </div>
+    
+    
+    <script>
+    var playersHeightData = [];
+    var playersWeightData = [];
+    var playersAgeData = [];
+    var textArea = document.getElementById("t_area")
+function getPlayerData() {
+  const readDataPromise = new Promise((resolve, reject) => {
+    d3.csv("./player_data.csv")
+      .then((data) => resolve(data))
+      .catch((error) => reject(error));
+  });
+
+  readDataPromise
+    .then((data) => {
+      processData(data);
+      drawSalesPlotChart();
+    })
+    .catch((error) => console.log(error));
+}
+
+ getPlayerData();
+
+function processData(data) {
+  data.forEach((element) => {
+    playersHeightData.push(Number(element.player_height));
+    playersWeightData.push(Number(element.player_weight));
+    playersAgeData.push(Number(element.age));
+  });
+}
+
+function drawSalesPlotChart() {
+  let svg = d3.select("svg");
+
+  // create a plot rectangle with a background color
+  let plot = svg.append("g");
+  plot
+    .append("rect")
+    .attr("x", 0)
+    .attr("y", 40)
+    .attr("width", 800)
+    .attr("height", 490)
+    .attr("fill", "rgb(230, 230, 230)")
+    .attr("stroke", "red");
+
+  drawPlayerHeightHistogram(plot, svg);
+  drawPlayerWeightHistogram(plot, svg);
+  drawPlayerAgeHistogram(plot, svg);
+}
+
+function drawPlayerHeightHistogram(plot, svg) {
+  plot
+    .append("g")
+    .attr("transform", "translate(0, 540)")
+    .attr("id", "player-height");
+
+  const playerHeightTickValues = [170, 180, 190, 200, 210, 220, 230];
+  var extent = d3.extent(playersHeightData);
+
+  let playerHeightScale = d3.scaleLinear().domain(extent).range([40, 350]);
+  let axisPlayerHeight = d3
+    .axisBottom(playerHeightScale)
+    .tickValues(playerHeightTickValues);
+
+  d3.select("#player-height").call(axisPlayerHeight);
+  var histogram = d3
+    .histogram()
+    .domain(playerHeightScale.domain()) 
+    .thresholds(playerHeightScale.ticks(40)); 
+
+  var data = histogram(playersHeightData); 
+
+  var yScale = d3
+    .scaleLinear()
+    .domain([0, d3.max(data, (d) => d.length)]) 
+    .range([0, 480]);
+
+  var bars = svg.selectAll("rect").data(data).enter().append("g");
+
+  bars
+    .append("rect")
+    .attr("x", (d) => playerHeightScale(d.x0))
+    .attr("y", (d) => 520 - yScale(d.length)) 
+    .attr("width", (d) => playerHeightScale(d.x1) - playerHeightScale(d.x0) - 2) 
+    .attr("height", (d) => yScale(d.length))
+    .attr("fill", "red");
+
+  bars
+    .append("text")
+    .attr(
+      "x",
+      (d) =>
+        playerHeightScale(d.x0) +
+        (playerHeightScale(d.x1) - playerHeightScale(d.x0)) / 2 - (20)
+    )
+    .attr("y", (d) => 500 - yScale(d.length)) 
+    .attr("fill", "blue")
+    .text((d) => d.length);
+
+  var mean = d3.mean(playersHeightData);
+  var stdDev = d3.deviation(playersHeightData);
+  textArea.value = `Height\n`;
+  textArea.value += `Mean: ${mean}\nStdDev: ${stdDev}\n\n`
+
+  const curvedData = playersHeightData.map((item) => ({
+    p: gaussian(item, mean, stdDev),
+    q: item,
+  }));
+
+  curvedData.sort(function (x, y) {
+    return x.q - y.q;
+  });
+
+  var yScaleGaussian = d3.scaleLinear().domain([0, 0.047]).range([520, 0]);
+
+  var line = d3
+    .line()
+    .x((d) => playerHeightScale(d.q))
+    .y((d) => yScaleGaussian(d.p));
+
+  plot
+    .append("path")
+    .datum(curvedData)
+    .attr("class", "line")
+    .attr("d", line)
+    .attr("fill", "none")
+    .attr("stroke-width", 2)
+    .attr("stroke", "green");
+
+  svg
+    .append("text")
+    .attr("class", "x-axis-label")
+    .attr("x", 80)
+    .attr("y", 100)
+    .attr("text-anchor", "middle")
+    .text("Player Height");
+
+}
+
+function drawPlayerWeightHistogram(plot, svg) {
+  plot
+    .append("g")
+    .attr("transform", "translate(350, 540)")
+    .attr("id", "player-weight");
+
+  const playerWeightTickValues = [
+    70, 80, 90, 100, 110, 120, 130, 140, 150, 160,
+  ];
+  var extent = d3.extent(playersWeightData);
+
+  let playerWeightScale = d3.scaleLinear().domain(extent).range([40, 350]);
+  let axisPlayerWeight = d3
+    .axisBottom(playerWeightScale)
+    .tickValues(playerWeightTickValues);
+
+  d3.select("#player-weight").call(axisPlayerWeight);
+  var histogram = d3
+    .histogram()
+    .domain(playerWeightScale.domain()) 
+    .thresholds(playerWeightScale.ticks(21)); 
+
+  var data = histogram(playersWeightData); 
+  console.log("playerWeightScale",data)
+  var yScale = d3
+    .scaleLinear()
+    .domain([0, d3.max(data, (d) => d.length)]) 
+    .range([0, 480]);
+
+  var bars = svg.selectAll("#player-weight").data(data).enter().append("g");
+
+  bars
+    .append("rect")
+    .attr("x", (d) => 350 + playerWeightScale(d.x0))
+    .attr("y", (d) => 520 - yScale(d.length)) 
+    .attr("width", (d) => playerWeightScale(d.x1) - playerWeightScale(d.x0) - 7) 
+    .attr("height", (d) => yScale(d.length))
+    .attr("fill", "red");
+
+  bars
+    .append("text")
+    .attr(
+      "x",
+      (d) =>
+        350 +
+        playerWeightScale(d.x0) +
+        (playerWeightScale(d.x1) - playerWeightScale(d.x0)) / 2 - (10)
+    )
+    .attr("y", (d) => 500 - yScale(d.length)) 
+    .attr("text-anchor", "middle")
+    .attr("fill", "blue")
+    .text((d) => d.length);
+
+  var mean = d3.mean(playersWeightData);
+  var stdDev = d3.deviation(playersWeightData);
+
+  textArea.value += `Weight\n`;
+  textArea.value += `Mean: ${mean}\nStdDev: ${stdDev}\n\n`;
+
+  const curvedData = playersWeightData.map((item) => ({
+    p: gaussian(item, mean, stdDev),
+    q: item,
+  }));
+
+  curvedData.sort(function (x, y) {
+    return x.q - y.q;
+  });
+
+  var yScaleGaussian = d3.scaleLinear().domain([0, 0.034]).range([520, 0]);
+
+  var line = d3
+    .line()
+    .x((d) => 350 + playerWeightScale(d.q))
+    .y((d) => yScaleGaussian(d.p));
+
+  plot
+    .append("path")
+    .datum(curvedData)
+    .attr("class", "line")
+    .attr("d", line)
+    .attr("fill", "none")
+    .attr("stroke-width", 2)
+    .attr("stroke", "green");
+
+  svg
+    .append("text")
+    .attr("class", "x-axis-label")
+    .attr("x", 430)
+    .attr("y", 100)
+    .attr("text-anchor", "middle")
+    .text("Player Weight");
+}
+
+function drawPlayerAgeHistogram(plot, svg) {
+  plot
+    .append("g")
+    .attr("transform", "translate(30, 1100)")
+    .attr("id", "player-age");
+
+  const playerAgeTickValues = [
+    18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44,
+  ];
+  var extent = d3.extent(playersAgeData);
+  let playerAgeScale = d3.scaleLinear().domain(extent).range([0, 350]);
+  let axisPlayerAge = d3
+    .axisBottom(playerAgeScale)
+    .tickValues(playerAgeTickValues);
+
+  d3.select("#player-age").call(axisPlayerAge);
+  var histogram = d3
+    .histogram()
+    .domain(playerAgeScale.domain()) 
+    .thresholds(playerAgeScale.ticks(27)); 
+
+  var data = histogram(playersAgeData); 
+
+  var yScale = d3
+    .scaleLinear()
+    .domain([0, d3.max(data, (d) => d.length)]) 
+    .range([0, 480]);
+
+  var bars = svg.selectAll("#player-age").data(data).enter().append("g");
+
+  bars
+    .append("rect")
+    .attr("x", (d) => 30 + playerAgeScale(d.x0))
+    .attr("y", (d) => 1090 - yScale(d.length)) 
+    .attr("width", (d) => playerAgeScale(d.x1) - playerAgeScale(d.x0) - 7) 
+    .attr("height", (d) => yScale(d.length))
+    .attr("fill", "red");
+
+  bars
+    .append("text")
+    .attr(
+      "x",
+      (d) =>
+        30 +
+        playerAgeScale(d.x0) +
+        (playerAgeScale(d.x1) - playerAgeScale(d.x0)) / 2
+    )
+    .attr("y", (d) => 1080 - yScale(d.length)) 
+    .attr("text-anchor", "middle")
+    .attr("fill", "blue")
+    .text((d) => d.length);
+
+  svg
+    .append("text")
+    .attr("class", "x-axis-label")
+    .attr("x", 50)
+    .attr("y", 700)
+    .attr("text-anchor", "middle")
+    .text("Player Age");
+
+    textArea.value += `Age\n`;
+  textArea.value += `Mean: ${d3.mean(playersAgeData)}\nStdDev: ${d3.deviation(playersAgeData)}\n\n`;
+}
+
+function gaussian(x, mean, stdDev) {
+  var exponent = -0.5 * Math.pow((x - mean) / stdDev, 2);
+  var coefficient = 1 / (stdDev * Math.sqrt(2 * Math.PI));
+  return coefficient * Math.exp(exponent);
+}
+
+    </script>
+</body>
+
+</html>
