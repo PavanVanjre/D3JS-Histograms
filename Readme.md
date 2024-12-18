@@ -60,7 +60,7 @@ In this assignment, you will work with a dataset of NBA players (`player_data.cs
   - Should represent a specific attribute (height, weight, or age).
   - Must include an overlaid normal distribution for height and weight.
 
-![Expected Output](Screenshot 2023-10-10 230421.png)
+![Expected Output](output.png)
 
 ---
 
